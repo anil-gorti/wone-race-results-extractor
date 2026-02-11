@@ -45,4 +45,7 @@
 - [x] Create deployment checkpoint
 
 ## Bug Fixes
--[x] Fix results table not displaying after successful extraction
+- [x] Fix results table not displaying after successful extraction
+
+## New Issues
+- [x] Fix results table not rendering even though extraction completes successfully

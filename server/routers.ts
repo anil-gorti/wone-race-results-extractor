@@ -310,6 +310,30 @@ async function processUrls(urls: string[], jobId: string, userId: number): Promi
       const cached = await getCachedResult(urlHash, userId);
       if (cached) {
         console.log(`Using cached result for ${normalizedUrl}`);
+        
+        // Insert a new row with current timestamp so it appears in job results
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        
+        await insertRaceResult({
+          url: cached.url,
+          urlHash: cached.urlHash,
+          name: cached.name,
+          category: cached.category,
+          finishTime: cached.finishTime,
+          bibNumber: cached.bibNumber,
+          rankOverall: cached.rankOverall,
+          rankCategory: cached.rankCategory,
+          pace: cached.pace,
+          platform: cached.platform,
+          status: cached.status,
+          errorMessage: cached.errorMessage,
+          extractedAt: cached.extractedAt, // Keep original extraction time
+          cachedAt: new Date(), // Update cache timestamp
+          expiresAt,
+          userId,
+        });
+        
         successCount++;
         processedCount++;
         await updateProcessingJob(jobId, {

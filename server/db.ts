@@ -118,7 +118,13 @@ export async function insertRaceResult(result: InsertRaceResult): Promise<void> 
     return;
   }
 
-  await db.insert(raceResults).values(result);
+  // Use onDuplicateKeyUpdate to handle cached results (update cachedAt timestamp)
+  await db.insert(raceResults).values(result).onDuplicateKeyUpdate({
+    set: {
+      cachedAt: result.cachedAt,
+      expiresAt: result.expiresAt,
+    },
+  });
 }
 
 export async function getResultsByJobId(jobId: string): Promise<RaceResult[]> {
@@ -132,14 +138,15 @@ export async function getResultsByJobId(jobId: string): Promise<RaceResult[]> {
 
   const job = jobs[0];
   
-  // Return all results for this user created around the same time as the job
+  // Return all results for this user with cachedAt timestamp after job creation
+  // This handles both fresh extractions and cached results
   const results = await db
     .select()
     .from(raceResults)
     .where(
       and(
         eq(raceResults.userId, job!.userId),
-        gt(raceResults.extractedAt, job!.createdAt)
+        gt(raceResults.cachedAt, job!.createdAt)
       )
     );
 
