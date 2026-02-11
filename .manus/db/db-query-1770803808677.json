@@ -1,0 +1,21 @@
+{
+  "query": "SELECT name, category, finishTime, bibNumber, rankOverall, rankCategory, pace FROM race_results ORDER BY extractedAt DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2Q7b6SbNTALLbCJ.root --database 9YwR7VzxzjRML8LdQwdj7b --execute SELECT name, category, finishTime, bibNumber, rankOverall, rankCategory, pace FROM race_results ORDER BY extractedAt DESC LIMIT 1;",
+  "rows": [
+    {
+      "name": "Ramesh S",
+      "category": "45 yrs & Above Female",
+      "finishTime": "03:16:14",
+      "bibNumber": "44897",
+      "rankOverall": "66",
+      "rankCategory": "5",
+      "pace": "00:04:40"
+    }
+  ],
+  "messages": [
+    "RS"
+  ],
+  "stdout": "name\tcategory\tfinishTime\tbibNumber\trankOverall\trankCategory\tpace\nRS\nRamesh S\t45 yrs & Above Female\t03:16:14\t44897\t66\t5\t00:04:40\n",
+  "stderr": "",
+  "execution_time_ms": 1543
+}

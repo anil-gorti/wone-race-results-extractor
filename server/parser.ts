@@ -40,15 +40,21 @@ const PARSERS: ParserConfig[] = [
     selectors: {},
     extractionLogic: async (page) => {
       // Wait for content to load
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
 
-      // Extract participant name
+      // Get the full page HTML for debugging
+      const html = await page.content();
+      
+      // Extract all text content
+      const bodyText = await page.evaluate(() => document.body.innerText);
+      
+      // Extract participant name (appears after "Share" and before "BIB No")
       let name: string | null = null;
       try {
-        const nameElement = await page.textContent('body');
-        const nameMatch = nameElement?.match(/([A-Z][a-z]+\s+[A-Z])/);
+        // Look for name between Share and BIB No, clean up newlines and extra text
+        const nameMatch = bodyText.match(/Share[\s\n]+(?:RS[\s\n]+)?([A-Z][a-z]+(?:\s+[A-Z](?:[a-z]+)?)*)\s+BIB\s+No/i);
         if (nameMatch) {
-          name = nameMatch[1];
+          name = nameMatch[1].trim();
         }
       } catch (error) {
         console.error('Error extracting name:', error);
@@ -57,8 +63,7 @@ const PARSERS: ParserConfig[] = [
       // Extract BIB number
       let bibNumber: string | null = null;
       try {
-        const bibText = await page.textContent('body');
-        const bibMatch = bibText?.match(/BIB No\s+(\d+)/i);
+        const bibMatch = bodyText.match(/BIB\s+No[:\s]+(\d+)/i);
         if (bibMatch) {
           bibNumber = bibMatch[1];
         }
@@ -69,8 +74,7 @@ const PARSERS: ParserConfig[] = [
       // Extract finish time
       let finishTime: string | null = null;
       try {
-        const timeText = await page.textContent('body');
-        const timeMatch = timeText?.match(/Finish Time\s+([\d:]+)/i);
+        const timeMatch = bodyText.match(/Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i);
         if (timeMatch) {
           finishTime = timeMatch[1];
         }
@@ -78,13 +82,14 @@ const PARSERS: ParserConfig[] = [
         console.error('Error extracting finish time:', error);
       }
 
-      // Extract category
+      // Extract category (look for age group pattern in the Rank section, not the dropdown)
       let category: string | null = null;
       try {
-        const categoryText = await page.textContent('body');
-        const categoryMatch = categoryText?.match(/(\d+\s+yrs\s+&\s+Above\s+\w+)/i);
+        // Look for category in the Rank section (after "Rank" heading)
+        // Match the pattern with newline before age to avoid matching rank numbers
+        const categoryMatch = bodyText.match(/Rank[\s\S]{0,300}\n(\d{1,2}\s+yrs\s+&\s+Above\s+(?:Male|Female))/);
         if (categoryMatch) {
-          category = categoryMatch[1];
+          category = categoryMatch[1].trim();
         }
       } catch (error) {
         console.error('Error extracting category:', error);
@@ -93,8 +98,7 @@ const PARSERS: ParserConfig[] = [
       // Extract overall rank
       let rankOverall: number | null = null;
       try {
-        const rankText = await page.textContent('body');
-        const rankMatch = rankText?.match(/Overall\s+(\d+)\s+OF/i);
+        const rankMatch = bodyText.match(/Overall[:\s]+(\d+)[\s]+OF/i);
         if (rankMatch) {
           rankOverall = parseInt(rankMatch[1], 10);
         }
@@ -105,17 +109,10 @@ const PARSERS: ParserConfig[] = [
       // Extract category rank
       let rankCategory: number | null = null;
       try {
-        const categoryRankText = await page.textContent('body');
-        const lines = categoryRankText?.split('\n') || [];
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i]?.includes('yrs & Above')) {
-            const nextLine = lines[i + 1];
-            const match = nextLine?.match(/^(\d+)$/);
-            if (match) {
-              rankCategory = parseInt(match[1], 10);
-              break;
-            }
-          }
+        // Look for the category line followed by rank and "OF" pattern
+        const categoryRankMatch = bodyText.match(/\d+\s+yrs\s+&\s+Above\s+(?:Male|Female)[\s\n]+(\d+)[\s]+OF\s+(\d+)/i);
+        if (categoryRankMatch) {
+          rankCategory = parseInt(categoryRankMatch[1], 10);
         }
       } catch (error) {
         console.error('Error extracting category rank:', error);
@@ -124,14 +121,15 @@ const PARSERS: ParserConfig[] = [
       // Extract pace
       let pace: string | null = null;
       try {
-        const paceText = await page.textContent('body');
-        const paceMatch = paceText?.match(/Chip Pace \(min\/km\)\s+([\d:]+)/i);
+        const paceMatch = bodyText.match(/Chip\s+Pace\s*\(min\/km\)[:\s]+(\d{1,2}:\d{2}:\d{2})/i);
         if (paceMatch) {
           pace = paceMatch[1];
         }
       } catch (error) {
         console.error('Error extracting pace:', error);
       }
+
+      console.log('Extracted data:', { name, bibNumber, finishTime, category, rankOverall, rankCategory, pace });
 
       return {
         name,

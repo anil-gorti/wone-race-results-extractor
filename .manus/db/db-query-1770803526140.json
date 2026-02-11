@@ -1,0 +1,26 @@
+{
+  "query": "SELECT id, url, name, category, finishTime, bibNumber, status, userId, extractedAt FROM race_results ORDER BY extractedAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2Q7b6SbNTALLbCJ.root --database 9YwR7VzxzjRML8LdQwdj7b --execute SELECT id, url, name, category, finishTime, bibNumber, status, userId, extractedAt FROM race_results ORDER BY extractedAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "2",
+      "url": "https://mysamay.in/race/results/22de74cf-e15d-4b56-8556-871a041ad251/46754/e18557fd-5da8-4971-b31e-eef5020b2e02",
+      "name": "NULL",
+      "category": "NULL",
+      "finishTime": "NULL",
+      "bibNumber": "NULL",
+      "status": "error",
+      "userId": "1",
+      "extractedAt": "2026-02-11 09:33:33"
+    }
+  ],
+  "messages": [
+    "3\thttps://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJJREJJIEZlZGVyYWwgTGlmZSBJbnN1cmFuY2UgTmV3IERlbGhpIE1hcmF0aG9uIDIwMjAiLCJlX2lkIjo1NzU0MywiYmliTm8iOiI0NDg5NyJ9\tHome",
+    "                                    A\t45 yrs & Above FemaleMale18\tNULL\tNULL\tcompleted\t1\t2026-02-11 09:34:03",
+    "1\thttps://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJUYXRhIE11bWJhaSBNYXJhdGhvbiAyMDIzIiwiZV9pZCI6NzE4MDMsImJpYk5vIjoiMTAyMDYifQ%3D%3D\tHome",
+    "                                    A\t70 yrs & Above FemaleMale18\tNULL\tNULL\tcompleted\t1\t2026-02-11 09:33:02"
+  ],
+  "stdout": "id\turl\tname\tcategory\tfinishTime\tbibNumber\tstatus\tuserId\textractedAt\n3\thttps://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJJREJJIEZlZGVyYWwgTGlmZSBJbnN1cmFuY2UgTmV3IERlbGhpIE1hcmF0aG9uIDIwMjAiLCJlX2lkIjo1NzU0MywiYmliTm8iOiI0NDg5NyJ9\tHome\n                                    \n                                    \n                                    A\t45 yrs & Above FemaleMale18\tNULL\tNULL\tcompleted\t1\t2026-02-11 09:34:03\n2\thttps://mysamay.in/race/results/22de74cf-e15d-4b56-8556-871a041ad251/46754/e18557fd-5da8-4971-b31e-eef5020b2e02\tNULL\tNULL\tNULL\tNULL\terror\t1\t2026-02-11 09:33:33\n1\thttps://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJUYXRhIE11bWJhaSBNYXJhdGhvbiAyMDIzIiwiZV9pZCI6NzE4MDMsImJpYk5vIjoiMTAyMDYifQ%3D%3D\tHome\n                                    \n                                    \n                                    A\t70 yrs & Above FemaleMale18\tNULL\tNULL\tcompleted\t1\t2026-02-11 09:33:02\n",
+  "stderr": "",
+  "execution_time_ms": 1572
+}
