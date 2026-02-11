@@ -49,3 +49,9 @@
 
 ## New Issues
 - [x] Fix results table not rendering even though extraction completes successfully
+
+## Platform Expansion
+- [x] Add MyRaceIndia platform parser
+- [x] Add iFinish platform parser
+- [x] Test MyRaceIndia URL extraction
+- [x] Test iFinish URL extraction

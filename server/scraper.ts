@@ -23,7 +23,8 @@ export async function fetchPageContent(url: string): Promise<{ html: string; tex
   const page = await browser.newPage();
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    // Use domcontentloaded for faster loading, especially for slow pages
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
     
     // Wait a bit for any dynamic content to load
     await page.waitForTimeout(2000);
@@ -56,7 +57,8 @@ export async function extractWithSelectors(
   const page = await browser.newPage();
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    // Use domcontentloaded for faster loading, especially for slow pages
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForTimeout(2000);
 
     const result: Record<string, string | null> = {};

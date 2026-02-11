@@ -1,0 +1,20 @@
+{
+  "query": "SELECT url, platform, status FROM race_results;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2Q7b6SbNTALLbCJ.root --database 9YwR7VzxzjRML8LdQwdj7b --execute SELECT url, platform, status FROM race_results;",
+  "rows": [
+    {
+      "url": "https://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJJREJJIEZlZGVyYWwgTGlmZSBJbnN1cmFuY2UgTmV3IERlbGhpIE1hcmF0aG9uIDIwMjAiLCJlX2lkIjo1NzU0MywiYmliTm8iOiI0NDg5NyJ9",
+      "platform": "Sports Timing Solutions",
+      "status": "completed"
+    },
+    {
+      "url": "https://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJUYXRhIE11bWJhaSBNYXJhdGhvbiAyMDIzIiwiZV9pZCI6NzE4MDMsImJpYk5vIjoiMTAyMDYifQ%3D%3D",
+      "platform": "Sports Timing Solutions",
+      "status": "completed"
+    }
+  ],
+  "messages": [],
+  "stdout": "url\tplatform\tstatus\nhttps://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJJREJJIEZlZGVyYWwgTGlmZSBJbnN1cmFuY2UgTmV3IERlbGhpIE1hcmF0aG9uIDIwMjAiLCJlX2lkIjo1NzU0MywiYmliTm8iOiI0NDg5NyJ9\tSports Timing Solutions\tcompleted\nhttps://sportstimingsolutions.in/results?q=eyJlX25hbWUiOiJUYXRhIE11bWJhaSBNYXJhdGhvbiAyMDIzIiwiZV9pZCI6NzE4MDMsImJpYk5vIjoiMTAyMDYifQ%3D%3D\tSports Timing Solutions\tcompleted\n",
+  "stderr": "",
+  "execution_time_ms": 1495
+}

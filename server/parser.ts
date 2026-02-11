@@ -142,7 +142,130 @@ const PARSERS: ParserConfig[] = [
       };
     },
   },
-  // Add more parsers for other platforms here
+  {
+    name: 'MyRaceIndia',
+    urlPattern: /myraceindia\.com/i,
+    selectors: {},
+    extractionLogic: async (page) => {
+      await page.waitForTimeout(3000);
+      const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Extract name (appears as "RAMESH S" in caps)
+      let name: string | null = null;
+      const nameMatch = bodyText.match(/Overall Results[\s\S]{0,200}\n([A-Z\s]+)\n(?:MALE|FEMALE)/i);
+      if (nameMatch) {
+        name = nameMatch[1].trim();
+      }
+
+      // Extract BIB number
+      let bibNumber: string | null = null;
+      const bibMatch = bodyText.match(/10\s+KM\s+(\d+)/i) || bodyText.match(/5\s+KM\s+(\d+)/i) || bodyText.match(/21\s+KM\s+(\d+)/i) || bodyText.match(/42\s+KM\s+(\d+)/i);
+      if (bibMatch) {
+        bibNumber = bibMatch[1];
+      }
+
+      // Extract category (e.g., "AG : 40YRS TO 54YRS - MEN")
+      let category: string | null = null;
+      const categoryMatch = bodyText.match(/AG\s*:\s*([^\n]+)/i);
+      if (categoryMatch) {
+        category = categoryMatch[1].trim();
+      }
+
+      // Extract finish time (NET TIME)
+      let finishTime: string | null = null;
+      const timeMatch = bodyText.match(/NET\s+TIME\s+(\d{1,2}:\d{2}:\d{2})/i);
+      if (timeMatch) {
+        finishTime = timeMatch[1];
+      }
+
+      // Extract overall rank (e.g., "28 / 354")
+      let rankOverall: number | null = null;
+      const overallMatch = bodyText.match(/(\d+)\s*\/\s*\d+\s*Overall/i);
+      if (overallMatch) {
+        rankOverall = parseInt(overallMatch[1], 10);
+      }
+
+      // Extract category rank
+      let rankCategory: number | null = null;
+      const categoryRankMatch = bodyText.match(/(\d+)\/\d+\s*AG\s+RANK/i);
+      if (categoryRankMatch) {
+        rankCategory = parseInt(categoryRankMatch[1], 10);
+      }
+
+      // Extract pace
+      let pace: string | null = null;
+      const paceMatch = bodyText.match(/PACE\(MIN\/KM\)\s+(\d{1,2}:\d{2})/i);
+      if (paceMatch) {
+        pace = paceMatch[1];
+      }
+
+      console.log('MyRaceIndia extracted:', { name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
+
+      return { name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+    },
+  },
+  {
+    name: 'iFinish',
+    urlPattern: /ifinish\.in/i,
+    selectors: {},
+    extractionLogic: async (page) => {
+      await page.waitForTimeout(3000);
+      const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Extract name (appears in caps like "RAMESHA SHAMANNA")
+      let name: string | null = null;
+      const nameMatch = bodyText.match(/~\s+([A-Z\s]+)\s+BIB#/i);
+      if (nameMatch) {
+        name = nameMatch[1].trim();
+      }
+
+      // Extract BIB number
+      let bibNumber: string | null = null;
+      const bibMatch = bodyText.match(/BIB#\s+(\d+)/i);
+      if (bibMatch) {
+        bibNumber = bibMatch[1];
+      }
+
+      // Extract category (e.g., "Open - Category - Under 40")
+      let category: string | null = null;
+      const categoryMatch = bodyText.match(/(?:Open|Elite)\s+Category\s+-\s+([^\n]+)/i);
+      if (categoryMatch) {
+        category = categoryMatch[1].trim();
+      }
+
+      // Extract finish time (Net Time)
+      let finishTime: string | null = null;
+      const timeMatch = bodyText.match(/Net\s+Time\s+(\d{1,2}:\d{2}:\d{2})/i);
+      if (timeMatch) {
+        finishTime = timeMatch[1];
+      }
+
+      // Extract overall rank (e.g., "3773 / 8132")
+      let rankOverall: number | null = null;
+      const overallMatch = bodyText.match(/Overall\s+Rank\s+(\d+)\s*\/\s*\d+/i);
+      if (overallMatch) {
+        rankOverall = parseInt(overallMatch[1], 10);
+      }
+
+      // Extract category rank
+      let rankCategory: number | null = null;
+      const categoryRankMatch = bodyText.match(/Category\s+Rank\s+(\d+)\s*\/\s*\d+/i);
+      if (categoryRankMatch) {
+        rankCategory = parseInt(categoryRankMatch[1], 10);
+      }
+
+      // Extract pace (Net Pace)
+      let pace: string | null = null;
+      const paceMatch = bodyText.match(/Net\s+Pace\s+\(min\/km\)\s+(\d{1,2}:\d{2})/i);
+      if (paceMatch) {
+        pace = paceMatch[1];
+      }
+
+      console.log('iFinish extracted:', { name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
+
+      return { name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+    },
+  },
 ];
 
 /**

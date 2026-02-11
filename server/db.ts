@@ -103,7 +103,8 @@ export async function getCachedResult(urlHash: string, userId: number): Promise<
       and(
         eq(raceResults.urlHash, urlHash),
         eq(raceResults.userId, userId),
-        gt(raceResults.expiresAt, now)
+        gt(raceResults.expiresAt, now),
+        eq(raceResults.status, 'completed') // Only return successful results, not errors
       )
     )
     .limit(1);
