@@ -55,3 +55,12 @@
 - [x] Add iFinish platform parser
 - [x] Test MyRaceIndia URL extraction
 - [x] Test iFinish URL extraction
+
+## Race Name Feature (POSTPONED - TypeScript type caching issue)
+- [x] Add raceName field to database schema
+- [x] Update Sports Timing Solutions parser to extract race name
+- [x] Update MyRaceIndia parser to extract race name
+- [x] Update iFinish parser to extract race name
+- [x] Add race name column to frontend results table
+- [ ] Fix TypeScript type inference issue preventing raceName from being saved
+- [ ] Test race name extraction for all platforms

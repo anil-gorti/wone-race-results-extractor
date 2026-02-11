@@ -286,6 +286,7 @@ export default function Home() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Race Name</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Finish Time</TableHead>
@@ -300,6 +301,9 @@ export default function Home() {
                   <TableBody>
                     {results.map((result) => (
                       <TableRow key={result.id}>
+                        <TableCell className="font-medium text-primary">
+                          {result.raceName || "-"}
+                        </TableCell>
                         <TableCell className="font-medium">
                           {result.name || "-"}
                         </TableCell>

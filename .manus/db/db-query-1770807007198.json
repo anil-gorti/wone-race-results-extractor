@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO race_results (url, urlHash, raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace, platform, status, extractedAt, cachedAt, expiresAt, userId) VALUES ('https://test.com', 'test123', 'Test Race Name', 'Test Runner', 'Test Category', '01:00:00', '12345', 1, 1, '05:00', 'test', 'completed', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR), 1);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2Q7b6SbNTALLbCJ.root --database 9YwR7VzxzjRML8LdQwdj7b --execute INSERT INTO race_results (url, urlHash, raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace, platform, status, extractedAt, cachedAt, expiresAt, userId) VALUES ('https://test.com', 'test123', 'Test Race Name', 'Test Runner', 'Test Category', '01:00:00', '12345', 1, 1, '05:00', 'test', 'completed', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR), 1);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1493
+}

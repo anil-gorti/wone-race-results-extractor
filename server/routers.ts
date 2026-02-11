@@ -172,6 +172,7 @@ export const appRouter = router({
           await insertRaceResult({
             url: normalizedUrl,
             urlHash,
+            raceName: data.raceName,
             name: data.name,
             category: data.category,
             finishTime: data.finishTime,
@@ -201,6 +202,7 @@ export const appRouter = router({
           await insertRaceResult({
             url: normalizedUrl,
             urlHash,
+            raceName: null,
             name: null,
             category: null,
             finishTime: null,
@@ -318,6 +320,7 @@ async function processUrls(urls: string[], jobId: string, userId: number): Promi
         await insertRaceResult({
           url: cached.url,
           urlHash: cached.urlHash,
+          raceName: cached.raceName,
           name: cached.name,
           category: cached.category,
           finishTime: cached.finishTime,
@@ -353,6 +356,7 @@ async function processUrls(urls: string[], jobId: string, userId: number): Promi
       await insertRaceResult({
         url: normalizedUrl,
         urlHash,
+        raceName: data.raceName,
         name: data.name,
         category: data.category,
         finishTime: data.finishTime,
@@ -383,6 +387,7 @@ async function processUrls(urls: string[], jobId: string, userId: number): Promi
       await insertRaceResult({
         url: normalizedUrl,
         urlHash,
+        raceName: null,
         name: null,
         category: null,
         finishTime: null,

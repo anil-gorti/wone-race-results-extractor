@@ -20,6 +20,7 @@ export interface ParserConfig {
 }
 
 export interface RaceResultData {
+  raceName: string | null;
   name: string | null;
   category: string | null;
   finishTime: string | null;
@@ -47,6 +48,18 @@ const PARSERS: ParserConfig[] = [
       
       // Extract all text content
       const bodyText = await page.evaluate(() => document.body.innerText);
+      
+      // Extract race name (appears at the top of the page)
+      let raceName: string | null = null;
+      try {
+        // Try to get the race name from the page title or heading
+        const raceNameMatch = bodyText.match(/^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K)[^\n]*)/im);
+        if (raceNameMatch) {
+          raceName = raceNameMatch[1].trim();
+        }
+      } catch (error) {
+        console.error('Error extracting race name:', error);
+      }
       
       // Extract participant name (appears after "Share" and before "BIB No")
       let name: string | null = null;
@@ -129,9 +142,10 @@ const PARSERS: ParserConfig[] = [
         console.error('Error extracting pace:', error);
       }
 
-      console.log('Extracted data:', { name, bibNumber, finishTime, category, rankOverall, rankCategory, pace });
+      console.log('Extracted data:', { raceName, name, bibNumber, finishTime, category, rankOverall, rankCategory, pace });
 
       return {
+        raceName,
         name,
         category,
         finishTime,
@@ -149,6 +163,18 @@ const PARSERS: ParserConfig[] = [
     extractionLogic: async (page) => {
       await page.waitForTimeout(3000);
       const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Extract race name from URL path (e.g., "Steel City Run 2023")
+      let raceName: string | null = null;
+      try {
+        const url = page.url();
+        const pathMatch = url.match(/\/individuals\/([^\/]+)\//);
+        if (pathMatch) {
+          raceName = decodeURIComponent(pathMatch[1].replace(/%20/g, ' '));
+        }
+      } catch (error) {
+        console.error('Error extracting race name:', error);
+      }
 
       // Extract name (appears as "RAMESH S" in caps)
       let name: string | null = null;
@@ -199,9 +225,9 @@ const PARSERS: ParserConfig[] = [
         pace = paceMatch[1];
       }
 
-      console.log('MyRaceIndia extracted:', { name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
+      console.log('MyRaceIndia extracted:', { raceName, name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
 
-      return { name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+      return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
     },
   },
   {
@@ -211,6 +237,17 @@ const PARSERS: ParserConfig[] = [
     extractionLogic: async (page) => {
       await page.waitForTimeout(3000);
       const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Extract race name (appears near the top, before participant name)
+      let raceName: string | null = null;
+      try {
+        const raceNameMatch = bodyText.match(/^([^~\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K)[^~\n]*)/im);
+        if (raceNameMatch) {
+          raceName = raceNameMatch[1].trim();
+        }
+      } catch (error) {
+        console.error('Error extracting race name:', error);
+      }
 
       // Extract name (appears in caps like "RAMESHA SHAMANNA")
       let name: string | null = null;
@@ -261,9 +298,9 @@ const PARSERS: ParserConfig[] = [
         pace = paceMatch[1];
       }
 
-      console.log('iFinish extracted:', { name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
+      console.log('iFinish extracted:', { raceName, name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
 
-      return { name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+      return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
     },
   },
 ];
@@ -323,6 +360,7 @@ export async function extractRaceResults(url: string): Promise<RaceResultData> {
     }
 
     return {
+      raceName: null, // Will be extracted by platform-specific logic
       name: result.name || null,
       category: result.category || null,
       finishTime: result.finishTime || null,

@@ -35,6 +35,8 @@ export const raceResults = mysqlTable("race_results", {
   url: text("url").notNull(),
   /** SHA-256 hash of URL for efficient lookups */
   urlHash: varchar("urlHash", { length: 64 }).notNull().unique(),
+  /** Race/event name (e.g., "Tata Mumbai Marathon") */
+  raceName: text("raceName"),
   /** Participant name */
   name: text("name"),
   /** Category/distance/age group */
@@ -65,8 +67,8 @@ export const raceResults = mysqlTable("race_results", {
   userId: int("userId").notNull(),
 });
 
-export type RaceResult = typeof raceResults.$inferSelect;
-export type InsertRaceResult = typeof raceResults.$inferInsert;
+export type RaceResult = typeof raceResults.$inferSelect & { raceName?: string | null };
+export type InsertRaceResult = typeof raceResults.$inferInsert & { raceName?: string | null };
 
 /**
  * Processing jobs for tracking bulk URL extraction operations.

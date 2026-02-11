@@ -1,0 +1,31 @@
+{
+  "query": "SELECT id, raceName, name, platform, status FROM race_results ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2Q7b6SbNTALLbCJ.root --database 9YwR7VzxzjRML8LdQwdj7b --execute SELECT id, raceName, name, platform, status FROM race_results ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "30024",
+      "raceName": "NULL",
+      "name": "RAMESHA SHAMANNA",
+      "platform": "iFinish",
+      "status": "completed"
+    },
+    {
+      "id": "30023",
+      "raceName": "NULL",
+      "name": "NULL",
+      "platform": "unknown",
+      "status": "error"
+    },
+    {
+      "id": "30022",
+      "raceName": "NULL",
+      "name": "Ramesh S",
+      "platform": "Sports Timing Solutions",
+      "status": "completed"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\traceName\tname\tplatform\tstatus\n30024\tNULL\tRAMESHA SHAMANNA\tiFinish\tcompleted\n30023\tNULL\tNULL\tunknown\terror\n30022\tNULL\tRamesh S\tSports Timing Solutions\tcompleted\n",
+  "stderr": "",
+  "execution_time_ms": 1503
+}
