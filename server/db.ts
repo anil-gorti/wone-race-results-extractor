@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, raceResults, processingJobs, InsertRaceResult, InsertProcessingJob, RaceResult, ProcessingJob } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,119 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Race Results helpers
+
+export async function getCachedResult(urlHash: string, userId: number): Promise<RaceResult | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const now = new Date();
+  const results = await db
+    .select()
+    .from(raceResults)
+    .where(
+      and(
+        eq(raceResults.urlHash, urlHash),
+        eq(raceResults.userId, userId),
+        gt(raceResults.expiresAt, now)
+      )
+    )
+    .limit(1);
+
+  return results.length > 0 ? results[0] : null;
+}
+
+export async function insertRaceResult(result: InsertRaceResult): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot insert race result: database not available");
+    return;
+  }
+
+  await db.insert(raceResults).values(result);
+}
+
+export async function getResultsByJobId(jobId: string): Promise<RaceResult[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get the job first to find the user
+  const jobs = await db.select().from(processingJobs).where(eq(processingJobs.jobId, jobId)).limit(1);
+  
+  if (jobs.length === 0) return [];
+
+  const job = jobs[0];
+  
+  // Return all results for this user created around the same time as the job
+  const results = await db
+    .select()
+    .from(raceResults)
+    .where(
+      and(
+        eq(raceResults.userId, job!.userId),
+        gt(raceResults.extractedAt, job!.createdAt)
+      )
+    );
+
+  return results;
+}
+
+// Processing Jobs helpers
+
+export async function createProcessingJob(job: InsertProcessingJob): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create processing job: database not available");
+    return;
+  }
+
+  await db.insert(processingJobs).values(job);
+}
+
+export async function getProcessingJob(jobId: string): Promise<ProcessingJob | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const results = await db
+    .select()
+    .from(processingJobs)
+    .where(eq(processingJobs.jobId, jobId))
+    .limit(1);
+
+  return results.length > 0 ? results[0] : null;
+}
+
+export async function updateProcessingJob(
+  jobId: string,
+  updates: {
+    processedUrls?: number;
+    successCount?: number;
+    errorCount?: number;
+    status?: 'queued' | 'processing' | 'completed' | 'failed';
+    completedAt?: Date;
+  }
+): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update processing job: database not available");
+    return;
+  }
+
+  await db
+    .update(processingJobs)
+    .set(updates)
+    .where(eq(processingJobs.jobId, jobId));
+}
+
+export async function getUserResults(userId: number, limit: number = 100): Promise<RaceResult[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db
+    .select()
+    .from(raceResults)
+    .where(eq(raceResults.userId, userId))
+    .limit(limit);
+
+  return results;
+}
