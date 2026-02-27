@@ -158,6 +158,30 @@ describe("parser.detectPlatform", () => {
     expect(platform?.name).toBe("Sports Timing Solutions");
   });
 
+  it("should detect Timing India platform", () => {
+    const url = "https://www.timingindia.com/my-result-details/abc123";
+    const platform = parser.detectPlatform(url);
+
+    expect(platform).not.toBeNull();
+    expect(platform?.name).toBe("Timing India");
+  });
+
+  it("should detect MySamay platform", () => {
+    const url = "https://mysamay.in/race/results/4fbe9261-c999-4868-9a1e-acd64b0b79f8";
+    const platform = parser.detectPlatform(url);
+
+    expect(platform).not.toBeNull();
+    expect(platform?.name).toBe("MySamay");
+  });
+
+  it("should detect NovaRace platform", () => {
+    const url = "https://www.novarace.in/results/skinathon-2025";
+    const platform = parser.detectPlatform(url);
+
+    expect(platform).not.toBeNull();
+    expect(platform?.name).toBe("NovaRace");
+  });
+
   it("should return null for unsupported platform", () => {
     const url = "https://example.com/results";
     const platform = parser.detectPlatform(url);

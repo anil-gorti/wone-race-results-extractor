@@ -248,6 +248,230 @@ const PARSERS: ParserConfig[] = [
       return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
     },
   },
+  {
+    name: 'Timing India',
+    urlPattern: /timingindia\.com/i,
+    selectors: {},
+    extractionLogic: async (page) => {
+      await page.waitForTimeout(4000);
+      const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Race name from page title or heading
+      let raceName = matchFirst(bodyText, [
+        /^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K|Ultra|Triathlon)[^\n]*)/im,
+      ]);
+      if (!raceName) {
+        // Try page title
+        const title = await page.title();
+        if (title && title.length > 3 && title !== 'Event Results') {
+          raceName = title.replace(/\|.*$/, '').replace(/Timing.*$/i, '').trim() || null;
+        }
+      }
+
+      const name = matchFirst(bodyText, [
+        /Name[:\s]+([A-Za-z][A-Za-z\s.]+)/i,
+        /([A-Z][A-Z\s.]{2,})\s+BIB/i,
+        /Participant[:\s]+([A-Za-z][A-Za-z\s.]+)/i,
+      ]);
+
+      const bibNumber = matchFirst(bodyText, [
+        /BIB[:\s#]+No\.?[:\s]*(\d+)/i,
+        /BIB[:\s#]+(\d+)/i,
+        /Bib\s+Number[:\s]+(\d+)/i,
+      ]);
+
+      const finishTime = matchFirst(bodyText, [
+        /Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Chip\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Net\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Gun\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+      ]);
+
+      const category = matchFirst(bodyText, [
+        /Category[:\s]+([^\n]+)/i,
+        /(\d{1,2}\s*[-–]\s*\d{1,2}\s+(?:Male|Female|Men|Women))/i,
+        /(?:Open|Elite|Age\s+Group)[:\s]+([^\n]+)/i,
+      ]);
+
+      const rankOverall = matchFirstInt(bodyText, [
+        /Overall\s+Rank[:\s]+(\d+)/i,
+        /Overall[:\s]+(\d+)\s*(?:OF|\/)/i,
+        /Position[:\s]+(\d+)/i,
+      ]);
+
+      const rankCategory = matchFirstInt(bodyText, [
+        /Category\s+Rank[:\s]+(\d+)/i,
+        /Category[:\s\S]{0,100}(\d+)\s*(?:OF|\/)/i,
+        /Gender\s+Rank[:\s]+(\d+)/i,
+      ]);
+
+      const pace = matchFirst(bodyText, [
+        /Pace\s*\(?min\/km\)?[:\s]+(\d{1,2}:\d{2}(?::\d{2})?)/i,
+        /Avg\.?\s+Pace[:\s]+(\d{1,2}:\d{2}(?::\d{2})?)/i,
+      ]);
+
+      console.log('TimingIndia extracted:', { raceName, name, bibNumber, finishTime, category, rankOverall, rankCategory, pace });
+
+      return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+    },
+  },
+  {
+    name: 'MySamay',
+    urlPattern: /mysamay\.in/i,
+    selectors: {},
+    extractionLogic: async (page) => {
+      // MySamay is a React SPA — give extra time for JS rendering
+      await page.waitForTimeout(5000);
+      const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Race name from page title (e.g. "Cognizant New Delhi Marathon 26 - Race Results")
+      let raceName: string | null = null;
+      const title = await page.title();
+      if (title) {
+        raceName = title.replace(/\s*[-–|]\s*Race\s+Results.*/i, '').trim() || null;
+      }
+      if (!raceName) {
+        raceName = matchFirst(bodyText, [
+          /^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K|Ultra)[^\n]*)/im,
+        ]);
+      }
+
+      const name = matchFirst(bodyText, [
+        /([A-Z][A-Z\s]{2,})\d{1,2}:\d{2}:\d{2}/,  // Name immediately before time
+        /Name[:\s]+([A-Za-z][A-Za-z\s.]+)/i,
+        /Participant[:\s]+([A-Za-z][A-Za-z\s.]+)/i,
+      ]);
+
+      // MySamay shows BIB as "#155" next to participant
+      const bibNumber = matchFirst(bodyText, [
+        /BIB[:\s#]+(\d+)/i,
+        /#(\d{1,5})\s*[·•]/,
+        /Bib\s+No\.?[:\s]+(\d+)/i,
+      ]);
+
+      // Category like "MARATHON ELITES • Male" or "HALF MARATHON • Female"
+      const category = matchFirst(bodyText, [
+        /((?:MARATHON|HALF\s+MARATHON|10K|5K|ULTRA)\s+(?:ELITES?|OPEN)?\s*[•·]\s*(?:Male|Female))/i,
+        /Category[:\s]+([^\n]+)/i,
+        /((?:Marathon|Half|10K|5K)\s+[^\n•·]{0,30}[•·]\s*(?:Male|Female))/i,
+      ]);
+
+      // MySamay shows "Official Time02:13:10" or "Gun Time02:13:14"
+      const finishTime = matchFirst(bodyText, [
+        /Official\s+Time\s*(\d{1,2}:\d{2}:\d{2})/i,
+        /Chip\s+Time\s*(\d{1,2}:\d{2}:\d{2})/i,
+        /Net\s+Time\s*(\d{1,2}:\d{2}:\d{2})/i,
+        /Gun\s+Time\s*(\d{1,2}:\d{2}:\d{2})/i,
+        /Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+      ]);
+
+      // MySamay shows "Overall#1" or "Overall Rank: 1"
+      const rankOverall = matchFirstInt(bodyText, [
+        /Overall\s*#\s*(\d+)/i,
+        /Overall\s+Rank[:\s]+(\d+)/i,
+        /Overall[:\s]+(\d+)\s*(?:\/|of)/i,
+      ]);
+
+      // MySamay shows "Gender Rank#1" or "Category Rank#3"
+      const rankCategory = matchFirstInt(bodyText, [
+        /Gender\s+Rank\s*#\s*(\d+)/i,
+        /Category\s+Rank\s*#\s*(\d+)/i,
+        /Gender\s+Rank[:\s]+(\d+)/i,
+        /Category\s+Rank[:\s]+(\d+)/i,
+      ]);
+
+      const pace = matchFirst(bodyText, [
+        /Pace\s*\(?min\/km\)?[:\s]+(\d{1,2}:\d{2})/i,
+        /Avg\.?\s+Pace[:\s]+(\d{1,2}:\d{2})/i,
+        /Pace[:\s]+(\d{1,2}:\d{2})/i,
+      ]);
+
+      console.log('MySamay extracted:', { raceName, name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
+
+      return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+    },
+  },
+  {
+    name: 'NovaRace',
+    urlPattern: /novarace\.in/i,
+    selectors: {},
+    extractionLogic: async (page) => {
+      // NovaRace is a React SPA — give extra time for JS rendering
+      await page.waitForTimeout(5000);
+      const bodyText = await page.evaluate(() => document.body.innerText);
+
+      // Race name from page title or URL slug
+      let raceName: string | null = null;
+      const title = await page.title();
+      if (title && title.length > 3) {
+        raceName = title.replace(/\s*[-–|]\s*(?:Novarace|Results).*/i, '').trim() || null;
+      }
+      if (!raceName) {
+        // Extract from URL slug (e.g. /results/skinathon-2025)
+        try {
+          const urlPath = new URL(page.url()).pathname;
+          const slugMatch = urlPath.match(/\/results\/([^\/]+)/);
+          if (slugMatch) {
+            raceName = slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+          }
+        } catch (_) {}
+      }
+      if (!raceName) {
+        raceName = matchFirst(bodyText, [
+          /^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K|Ultra)[^\n]*)/im,
+        ]);
+      }
+
+      const name = matchFirst(bodyText, [
+        /Name[:\s]+([A-Za-z][A-Za-z\s.]+)/i,
+        /Participant[:\s]+([A-Za-z][A-Za-z\s.]+)/i,
+        /([A-Z][A-Z\s.]{2,})\s+(?:BIB|#\d)/i,
+      ]);
+
+      const bibNumber = matchFirst(bodyText, [
+        /BIB[:\s#]+(\d+)/i,
+        /Bib\s+No\.?[:\s]+(\d+)/i,
+        /#(\d{1,5})\s/,
+      ]);
+
+      const category = matchFirst(bodyText, [
+        /Category[:\s]+([^\n]+)/i,
+        /((?:Marathon|Half\s*Marathon|10K|5K|Ultra|Fun\s+Run)\s*[-–]?\s*(?:Open|Elite|Men|Women|Male|Female)?)/i,
+      ]);
+
+      const finishTime = matchFirst(bodyText, [
+        /Chip\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Net\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Gun\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Official\s+Time[:\s]*(\d{1,2}:\d{2}:\d{2})/i,
+      ]);
+
+      const rankOverall = matchFirstInt(bodyText, [
+        /Overall\s+Rank[:\s]+(\d+)/i,
+        /Overall[:\s]+(\d+)\s*(?:\/|of)/i,
+        /Overall\s*#\s*(\d+)/i,
+        /Position[:\s]+(\d+)/i,
+      ]);
+
+      const rankCategory = matchFirstInt(bodyText, [
+        /Category\s+Rank[:\s]+(\d+)/i,
+        /Gender\s+Rank[:\s]+(\d+)/i,
+        /Cat\.?\s+Rank[:\s]+(\d+)/i,
+      ]);
+
+      const pace = matchFirst(bodyText, [
+        /Pace\s*\(?min\/km\)?[:\s]+(\d{1,2}:\d{2})/i,
+        /Avg\.?\s+Pace[:\s]+(\d{1,2}:\d{2})/i,
+        /Pace[:\s]+(\d{1,2}:\d{2})/i,
+      ]);
+
+      console.log('NovaRace extracted:', { raceName, name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
+
+      return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
+    },
+  },
 ];
 
 /**

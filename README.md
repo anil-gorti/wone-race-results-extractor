@@ -32,6 +32,9 @@ Paste one or more race result URLs and get clean, structured outputs — race na
 - [Sports Timing Solutions](https://sportstimingsolutions.in) — `sportstimingsolutions.in`
 - [MyRaceIndia](https://myraceindia.com) — `myraceindia.com`
 - [iFinish](https://ifinish.in) — `ifinish.in`
+- [Timing India](https://timingindia.com) — `timingindia.com`
+- [MySamay](https://mysamay.in) — `mysamay.in`
+- [NovaRace](https://novarace.in) — `novarace.in`
 
 ## Tech Stack
 
