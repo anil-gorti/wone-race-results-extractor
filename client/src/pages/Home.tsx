@@ -16,6 +16,7 @@ export default function Home() {
   const [urlInput, setUrlInput] = useState("");
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [pollingEnabled, setPollingEnabled] = useState(false);
+  const utils = trpc.useUtils();
 
   const extractMutation = trpc.raceResults.extractResults.useMutation({
     onSuccess: (data) => {
@@ -84,7 +85,6 @@ export default function Home() {
     if (!currentJobId) return;
 
     try {
-      const utils = trpc.useUtils();
       const result = await utils.raceResults.exportResults.fetch({
         jobId: currentJobId,
         format,

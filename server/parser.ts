@@ -1,5 +1,5 @@
-import { chromium } from 'playwright';
 import SHA256 from 'crypto-js/sha256';
+import { getBrowser } from './scraper';
 
 /**
  * Platform-specific parser configurations
@@ -32,6 +32,31 @@ export interface RaceResultData {
 }
 
 /**
+ * Try multiple regex patterns and return the first match's capture group
+ */
+function matchFirst(text: string, patterns: RegExp[], group: number = 1): string | null {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[group]) {
+      return match[group].trim();
+    }
+  }
+  return null;
+}
+
+/**
+ * Try multiple regex patterns and return the first match's capture group as a number
+ */
+function matchFirstInt(text: string, patterns: RegExp[], group: number = 1): number | null {
+  const value = matchFirst(text, patterns, group);
+  if (value) {
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+}
+
+/**
  * Supported race timing platforms
  */
 const PARSERS: ParserConfig[] = [
@@ -40,120 +65,57 @@ const PARSERS: ParserConfig[] = [
     urlPattern: /sportstimingsolutions\.in/i,
     selectors: {},
     extractionLogic: async (page) => {
-      // Wait for content to load
       await page.waitForTimeout(3000);
-
-      // Get the full page HTML for debugging
-      const html = await page.content();
-      
-      // Extract all text content
       const bodyText = await page.evaluate(() => document.body.innerText);
-      
-      // Extract race name (appears at the top of the page)
-      let raceName: string | null = null;
-      try {
-        // Try to get the race name from the page title or heading
-        const raceNameMatch = bodyText.match(/^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K)[^\n]*)/im);
-        if (raceNameMatch) {
-          raceName = raceNameMatch[1].trim();
-        }
-      } catch (error) {
-        console.error('Error extracting race name:', error);
-      }
-      
-      // Extract participant name (appears after "Share" and before "BIB No")
-      let name: string | null = null;
-      try {
-        // Look for name between Share and BIB No, clean up newlines and extra text
-        const nameMatch = bodyText.match(/Share[\s\n]+(?:RS[\s\n]+)?([A-Z][a-z]+(?:\s+[A-Z](?:[a-z]+)?)*)\s+BIB\s+No/i);
-        if (nameMatch) {
-          name = nameMatch[1].trim();
-        }
-      } catch (error) {
-        console.error('Error extracting name:', error);
-      }
 
-      // Extract BIB number
-      let bibNumber: string | null = null;
-      try {
-        const bibMatch = bodyText.match(/BIB\s+No[:\s]+(\d+)/i);
-        if (bibMatch) {
-          bibNumber = bibMatch[1];
-        }
-      } catch (error) {
-        console.error('Error extracting BIB:', error);
-      }
+      const raceName = matchFirst(bodyText, [
+        /^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K|Ultra)[^\n]*)/im,
+        /^([^\n]{5,80})\n/m, // Fallback: first substantial line
+      ]);
 
-      // Extract finish time
-      let finishTime: string | null = null;
-      try {
-        const timeMatch = bodyText.match(/Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i);
-        if (timeMatch) {
-          finishTime = timeMatch[1];
-        }
-      } catch (error) {
-        console.error('Error extracting finish time:', error);
-      }
+      const name = matchFirst(bodyText, [
+        /Share[\s\n]+(?:RS[\s\n]+)?([A-Z][a-z]+(?:\s+[A-Z](?:[a-z]+)?)*)\s+BIB\s+No/i,
+        /Share[\s\n]+([A-Za-z][A-Za-z\s]+?)\s*\n.*BIB/i,
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+BIB/i,
+      ]);
 
-      // Extract category (look for age group pattern in the Rank section, not the dropdown)
-      let category: string | null = null;
-      try {
-        // Look for category in the Rank section (after "Rank" heading)
-        // Match the pattern with newline before age to avoid matching rank numbers
-        const categoryMatch = bodyText.match(/Rank[\s\S]{0,300}\n(\d{1,2}\s+yrs\s+&\s+Above\s+(?:Male|Female))/);
-        if (categoryMatch) {
-          category = categoryMatch[1].trim();
-        }
-      } catch (error) {
-        console.error('Error extracting category:', error);
-      }
+      const bibNumber = matchFirst(bodyText, [
+        /BIB\s+No[:\s]+(\d+)/i,
+        /BIB[:\s#]+(\d+)/i,
+      ]);
 
-      // Extract overall rank
-      let rankOverall: number | null = null;
-      try {
-        const rankMatch = bodyText.match(/Overall[:\s]+(\d+)[\s]+OF/i);
-        if (rankMatch) {
-          rankOverall = parseInt(rankMatch[1], 10);
-        }
-      } catch (error) {
-        console.error('Error extracting overall rank:', error);
-      }
+      const finishTime = matchFirst(bodyText, [
+        /Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Chip\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Gun\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+        /Net\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+      ]);
 
-      // Extract category rank
-      let rankCategory: number | null = null;
-      try {
-        // Look for the category line followed by rank and "OF" pattern
-        const categoryRankMatch = bodyText.match(/\d+\s+yrs\s+&\s+Above\s+(?:Male|Female)[\s\n]+(\d+)[\s]+OF\s+(\d+)/i);
-        if (categoryRankMatch) {
-          rankCategory = parseInt(categoryRankMatch[1], 10);
-        }
-      } catch (error) {
-        console.error('Error extracting category rank:', error);
-      }
+      const category = matchFirst(bodyText, [
+        /Rank[\s\S]{0,300}\n(\d{1,2}\s+yrs\s+&\s+Above\s+(?:Male|Female))/,
+        /(\d{1,2}\s*-\s*\d{1,2}\s+(?:Male|Female))/i,
+        /Category[:\s]+([^\n]+)/i,
+      ]);
 
-      // Extract pace
-      let pace: string | null = null;
-      try {
-        const paceMatch = bodyText.match(/Chip\s+Pace\s*\(min\/km\)[:\s]+(\d{1,2}:\d{2}:\d{2})/i);
-        if (paceMatch) {
-          pace = paceMatch[1];
-        }
-      } catch (error) {
-        console.error('Error extracting pace:', error);
-      }
+      const rankOverall = matchFirstInt(bodyText, [
+        /Overall[:\s]+(\d+)[\s]+OF/i,
+        /Overall[:\s]+(\d+)\s*\/\s*\d+/i,
+      ]);
 
-      console.log('Extracted data:', { raceName, name, bibNumber, finishTime, category, rankOverall, rankCategory, pace });
+      const rankCategory = matchFirstInt(bodyText, [
+        /\d+\s+yrs\s+&\s+Above\s+(?:Male|Female)[\s\n]+(\d+)[\s]+OF\s+(\d+)/i,
+        /Category[\s\S]{0,100}(\d+)[\s]+OF\s+\d+/i,
+      ]);
 
-      return {
-        raceName,
-        name,
-        category,
-        finishTime,
-        bibNumber,
-        rankOverall,
-        rankCategory,
-        pace,
-      };
+      const pace = matchFirst(bodyText, [
+        /Chip\s+Pace\s*\(min\/km\)[:\s]+(\d{1,2}:\d{2}(?::\d{2})?)/i,
+        /Pace\s*\(min\/km\)[:\s]+(\d{1,2}:\d{2}(?::\d{2})?)/i,
+        /Avg\.?\s+Pace[:\s]+(\d{1,2}:\d{2}(?::\d{2})?)/i,
+      ]);
+
+      console.log('STS extracted:', { raceName, name, bibNumber, finishTime, category, rankOverall, rankCategory, pace });
+
+      return { raceName, name, category, finishTime, bibNumber, rankOverall, rankCategory, pace };
     },
   },
   {
@@ -164,66 +126,65 @@ const PARSERS: ParserConfig[] = [
       await page.waitForTimeout(3000);
       const bodyText = await page.evaluate(() => document.body.innerText);
 
-      // Extract race name from URL path (e.g., "Steel City Run 2023")
+      // Extract race name from URL path or page content
       let raceName: string | null = null;
       try {
         const url = page.url();
         const pathMatch = url.match(/\/individuals\/([^\/]+)\//);
         if (pathMatch) {
-          raceName = decodeURIComponent(pathMatch[1].replace(/%20/g, ' '));
+          raceName = decodeURIComponent(pathMatch[1].replace(/%20/g, ' ').replace(/-/g, ' '));
         }
       } catch (error) {
         console.error('Error extracting race name:', error);
       }
-
-      // Extract name (appears as "RAMESH S" in caps)
-      let name: string | null = null;
-      const nameMatch = bodyText.match(/Overall Results[\s\S]{0,200}\n([A-Z\s]+)\n(?:MALE|FEMALE)/i);
-      if (nameMatch) {
-        name = nameMatch[1].trim();
+      if (!raceName) {
+        raceName = matchFirst(bodyText, [
+          /^([^\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K|Ultra)[^\n]*)/im,
+        ]);
       }
 
-      // Extract BIB number
-      let bibNumber: string | null = null;
-      const bibMatch = bodyText.match(/10\s+KM\s+(\d+)/i) || bodyText.match(/5\s+KM\s+(\d+)/i) || bodyText.match(/21\s+KM\s+(\d+)/i) || bodyText.match(/42\s+KM\s+(\d+)/i);
-      if (bibMatch) {
-        bibNumber = bibMatch[1];
-      }
+      const name = matchFirst(bodyText, [
+        /Overall Results[\s\S]{0,200}\n([A-Z][A-Z\s]+)\n(?:MALE|FEMALE)/i,
+        /([A-Z][A-Z\s]{2,})\n(?:MALE|FEMALE)/i,
+        /Name[:\s]+([A-Za-z][A-Za-z\s]+)/i,
+      ]);
 
-      // Extract category (e.g., "AG : 40YRS TO 54YRS - MEN")
-      let category: string | null = null;
-      const categoryMatch = bodyText.match(/AG\s*:\s*([^\n]+)/i);
-      if (categoryMatch) {
-        category = categoryMatch[1].trim();
-      }
+      const bibNumber = matchFirst(bodyText, [
+        /(?:10|5|21(?:\.1)?|42(?:\.2)?)\s*KM\s+(\d+)/i,
+        /BIB[:\s#]*(\d+)/i,
+        /Bib\s+No\.?[:\s]+(\d+)/i,
+      ]);
 
-      // Extract finish time (NET TIME)
-      let finishTime: string | null = null;
-      const timeMatch = bodyText.match(/NET\s+TIME\s+(\d{1,2}:\d{2}:\d{2})/i);
-      if (timeMatch) {
-        finishTime = timeMatch[1];
-      }
+      const category = matchFirst(bodyText, [
+        /AG\s*:\s*([^\n]+)/i,
+        /Age\s+Group[:\s]+([^\n]+)/i,
+        /Category[:\s]+([^\n]+)/i,
+      ]);
 
-      // Extract overall rank (e.g., "28 / 354")
-      let rankOverall: number | null = null;
-      const overallMatch = bodyText.match(/(\d+)\s*\/\s*\d+\s*Overall/i);
-      if (overallMatch) {
-        rankOverall = parseInt(overallMatch[1], 10);
-      }
+      const finishTime = matchFirst(bodyText, [
+        /NET\s+TIME\s+(\d{1,2}:\d{2}:\d{2})/i,
+        /CHIP\s+TIME\s+(\d{1,2}:\d{2}:\d{2})/i,
+        /GUN\s+TIME\s+(\d{1,2}:\d{2}:\d{2})/i,
+        /Finish\s+Time[:\s]+(\d{1,2}:\d{2}:\d{2})/i,
+      ]);
 
-      // Extract category rank
-      let rankCategory: number | null = null;
-      const categoryRankMatch = bodyText.match(/(\d+)\/\d+\s*AG\s+RANK/i);
-      if (categoryRankMatch) {
-        rankCategory = parseInt(categoryRankMatch[1], 10);
-      }
+      const rankOverall = matchFirstInt(bodyText, [
+        /(\d+)\s*\/\s*\d+\s*Overall/i,
+        /Overall\s+Rank[:\s]+(\d+)/i,
+        /Overall[:\s]+(\d+)\s*\/\s*\d+/i,
+      ]);
 
-      // Extract pace
-      let pace: string | null = null;
-      const paceMatch = bodyText.match(/PACE\(MIN\/KM\)\s+(\d{1,2}:\d{2})/i);
-      if (paceMatch) {
-        pace = paceMatch[1];
-      }
+      const rankCategory = matchFirstInt(bodyText, [
+        /(\d+)\s*\/\s*\d+\s*AG\s+RANK/i,
+        /AG\s+RANK[:\s]+(\d+)/i,
+        /Category\s+Rank[:\s]+(\d+)/i,
+      ]);
+
+      const pace = matchFirst(bodyText, [
+        /PACE\s*\(?MIN\/KM\)?\s+(\d{1,2}:\d{2})/i,
+        /Avg\.?\s+Pace[:\s]+(\d{1,2}:\d{2})/i,
+        /Pace[:\s]+(\d{1,2}:\d{2})/i,
+      ]);
 
       console.log('MyRaceIndia extracted:', { raceName, name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
 
@@ -238,65 +199,49 @@ const PARSERS: ParserConfig[] = [
       await page.waitForTimeout(3000);
       const bodyText = await page.evaluate(() => document.body.innerText);
 
-      // Extract race name (appears near the top, before participant name)
-      let raceName: string | null = null;
-      try {
-        const raceNameMatch = bodyText.match(/^([^~\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K)[^~\n]*)/im);
-        if (raceNameMatch) {
-          raceName = raceNameMatch[1].trim();
-        }
-      } catch (error) {
-        console.error('Error extracting race name:', error);
-      }
+      const raceName = matchFirst(bodyText, [
+        /^([^~\n]+(?:Marathon|Run|Race|Half Marathon|10K|5K|Ultra)[^~\n]*)/im,
+        /^([^~\n]{5,80})\n/m,
+      ]);
 
-      // Extract name (appears in caps like "RAMESHA SHAMANNA")
-      let name: string | null = null;
-      const nameMatch = bodyText.match(/~\s+([A-Z\s]+)\s+BIB#/i);
-      if (nameMatch) {
-        name = nameMatch[1].trim();
-      }
+      const name = matchFirst(bodyText, [
+        /~\s+([A-Z][A-Z\s]+)\s+BIB#/i,
+        /([A-Z][A-Z\s]{2,})\s+BIB/i,
+        /Name[:\s]+([A-Za-z][A-Za-z\s]+)/i,
+      ]);
 
-      // Extract BIB number
-      let bibNumber: string | null = null;
-      const bibMatch = bodyText.match(/BIB#\s+(\d+)/i);
-      if (bibMatch) {
-        bibNumber = bibMatch[1];
-      }
+      const bibNumber = matchFirst(bodyText, [
+        /BIB#\s*(\d+)/i,
+        /BIB[:\s#]+(\d+)/i,
+      ]);
 
-      // Extract category (e.g., "Open - Category - Under 40")
-      let category: string | null = null;
-      const categoryMatch = bodyText.match(/(?:Open|Elite)\s+Category\s+-\s+([^\n]+)/i);
-      if (categoryMatch) {
-        category = categoryMatch[1].trim();
-      }
+      const category = matchFirst(bodyText, [
+        /(?:Open|Elite)\s+[-–]?\s*Category\s+[-–]\s+([^\n]+)/i,
+        /Category[:\s]+([^\n]+)/i,
+      ]);
 
-      // Extract finish time (Net Time)
-      let finishTime: string | null = null;
-      const timeMatch = bodyText.match(/Net\s+Time\s+(\d{1,2}:\d{2}:\d{2})/i);
-      if (timeMatch) {
-        finishTime = timeMatch[1];
-      }
+      const finishTime = matchFirst(bodyText, [
+        /Net\s+Time\s+(\d{1,2}:\d{2}:\d{2})/i,
+        /Chip\s+Time\s+(\d{1,2}:\d{2}:\d{2})/i,
+        /Finish\s+Time\s+(\d{1,2}:\d{2}:\d{2})/i,
+        /Gun\s+Time\s+(\d{1,2}:\d{2}:\d{2})/i,
+      ]);
 
-      // Extract overall rank (e.g., "3773 / 8132")
-      let rankOverall: number | null = null;
-      const overallMatch = bodyText.match(/Overall\s+Rank\s+(\d+)\s*\/\s*\d+/i);
-      if (overallMatch) {
-        rankOverall = parseInt(overallMatch[1], 10);
-      }
+      const rankOverall = matchFirstInt(bodyText, [
+        /Overall\s+Rank\s+(\d+)\s*\/\s*\d+/i,
+        /Overall[:\s]+(\d+)\s*\/\s*\d+/i,
+      ]);
 
-      // Extract category rank
-      let rankCategory: number | null = null;
-      const categoryRankMatch = bodyText.match(/Category\s+Rank\s+(\d+)\s*\/\s*\d+/i);
-      if (categoryRankMatch) {
-        rankCategory = parseInt(categoryRankMatch[1], 10);
-      }
+      const rankCategory = matchFirstInt(bodyText, [
+        /Category\s+Rank\s+(\d+)\s*\/\s*\d+/i,
+        /Cat\.?\s+Rank[:\s]+(\d+)/i,
+      ]);
 
-      // Extract pace (Net Pace)
-      let pace: string | null = null;
-      const paceMatch = bodyText.match(/Net\s+Pace\s+\(min\/km\)\s+(\d{1,2}:\d{2})/i);
-      if (paceMatch) {
-        pace = paceMatch[1];
-      }
+      const pace = matchFirst(bodyText, [
+        /Net\s+Pace\s+\(min\/km\)\s+(\d{1,2}:\d{2})/i,
+        /Pace\s*\(min\/km\)\s+(\d{1,2}:\d{2})/i,
+        /Avg\.?\s+Pace[:\s]+(\d{1,2}:\d{2})/i,
+      ]);
 
       console.log('iFinish extracted:', { raceName, name, bibNumber, category, finishTime, rankOverall, rankCategory, pace });
 
@@ -327,15 +272,13 @@ export async function extractRaceResults(url: string): Promise<RaceResultData> {
     throw new Error(`Unsupported race timing platform: ${url}`);
   }
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-
+  const browser = await getBrowser();
   const page = await browser.newPage();
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    // Wait for dynamic content to render
+    await page.waitForTimeout(2000);
 
     let result: Partial<RaceResultData> = {};
 
@@ -360,7 +303,7 @@ export async function extractRaceResults(url: string): Promise<RaceResultData> {
     }
 
     return {
-      raceName: null, // Will be extracted by platform-specific logic
+      raceName: result.raceName || null,
       name: result.name || null,
       category: result.category || null,
       finishTime: result.finishTime || null,
@@ -372,7 +315,6 @@ export async function extractRaceResults(url: string): Promise<RaceResultData> {
     };
   } finally {
     await page.close();
-    await browser.close();
   }
 }
 

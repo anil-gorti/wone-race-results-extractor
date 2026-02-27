@@ -117,6 +117,7 @@ export const appRouter = router({
         return results.map((r) => ({
           id: r.id,
           url: r.url,
+          raceName: r.raceName,
           name: r.name,
           category: r.category,
           finishTime: r.finishTime,
@@ -140,6 +141,7 @@ export const appRouter = router({
       return results.map((r) => ({
         id: r.id,
         url: r.url,
+        raceName: r.raceName,
         name: r.name,
         category: r.category,
         finishTime: r.finishTime,
@@ -247,6 +249,7 @@ export const appRouter = router({
         const results = await getResultsByJobId(input.jobId);
 
         const data = results.map((r) => ({
+          "Race Name": r.raceName || "",
           Name: r.name || "",
           Category: r.category || "",
           "Finish Time": r.finishTime || "",
@@ -293,8 +296,117 @@ export const appRouter = router({
   }),
 });
 
+const CONCURRENCY_LIMIT = 3;
+
 /**
- * Background processing function for URLs
+ * Process a single URL and return success/error status
+ */
+async function processSingleUrl(
+  url: string,
+  jobId: string,
+  userId: number
+): Promise<boolean> {
+  try {
+    const normalizedUrl = normalizeUrl(url);
+    const urlHash = hashUrl(normalizedUrl);
+
+    // Check cache first
+    const cached = await getCachedResult(urlHash, userId);
+    if (cached) {
+      console.log(`Using cached result for ${normalizedUrl}`);
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      await insertRaceResult({
+        url: cached.url,
+        urlHash: cached.urlHash,
+        jobId,
+        raceName: cached.raceName,
+        name: cached.name,
+        category: cached.category,
+        finishTime: cached.finishTime,
+        bibNumber: cached.bibNumber,
+        rankOverall: cached.rankOverall,
+        rankCategory: cached.rankCategory,
+        pace: cached.pace,
+        platform: cached.platform,
+        status: cached.status,
+        errorMessage: cached.errorMessage,
+        extractedAt: cached.extractedAt,
+        cachedAt: new Date(),
+        expiresAt,
+        userId,
+      });
+
+      return true;
+    }
+
+    // Extract with retry logic
+    const data = await retryWithBackoff(() => extractRaceResults(normalizedUrl));
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    await insertRaceResult({
+      url: normalizedUrl,
+      urlHash,
+      jobId,
+      raceName: data.raceName,
+      name: data.name,
+      category: data.category,
+      finishTime: data.finishTime,
+      bibNumber: data.bibNumber,
+      rankOverall: data.rankOverall,
+      rankCategory: data.rankCategory,
+      pace: data.pace,
+      platform: data.platform,
+      status: "completed",
+      errorMessage: null,
+      extractedAt: new Date(),
+      cachedAt: new Date(),
+      expiresAt,
+      userId,
+    });
+
+    return true;
+  } catch (error) {
+    console.error(`Error processing ${url}:`, error);
+
+    const normalizedUrl = normalizeUrl(url);
+    const urlHash = hashUrl(normalizedUrl);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    await insertRaceResult({
+      url: normalizedUrl,
+      urlHash,
+      jobId,
+      raceName: null,
+      name: null,
+      category: null,
+      finishTime: null,
+      bibNumber: null,
+      rankOverall: null,
+      rankCategory: null,
+      pace: null,
+      platform: "unknown",
+      status: "error",
+      errorMessage,
+      extractedAt: new Date(),
+      cachedAt: new Date(),
+      expiresAt,
+      userId,
+    });
+
+    return false;
+  }
+}
+
+/**
+ * Background processing function for URLs with concurrency limit
  */
 async function processUrls(urls: string[], jobId: string, userId: number): Promise<void> {
   await updateProcessingJob(jobId, { status: "processing" });
@@ -303,111 +415,23 @@ async function processUrls(urls: string[], jobId: string, userId: number): Promi
   let successCount = 0;
   let errorCount = 0;
 
-  for (const url of urls) {
-    try {
-      const normalizedUrl = normalizeUrl(url);
-      const urlHash = hashUrl(normalizedUrl);
+  // Process URLs in batches of CONCURRENCY_LIMIT
+  for (let i = 0; i < urls.length; i += CONCURRENCY_LIMIT) {
+    const batch = urls.slice(i, i + CONCURRENCY_LIMIT);
 
-      // Check cache first
-      const cached = await getCachedResult(urlHash, userId);
-      if (cached) {
-        console.log(`Using cached result for ${normalizedUrl}`);
-        
-        // Insert a new row with current timestamp so it appears in job results
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
-        
-        await insertRaceResult({
-          url: cached.url,
-          urlHash: cached.urlHash,
-          raceName: cached.raceName,
-          name: cached.name,
-          category: cached.category,
-          finishTime: cached.finishTime,
-          bibNumber: cached.bibNumber,
-          rankOverall: cached.rankOverall,
-          rankCategory: cached.rankCategory,
-          pace: cached.pace,
-          platform: cached.platform,
-          status: cached.status,
-          errorMessage: cached.errorMessage,
-          extractedAt: cached.extractedAt, // Keep original extraction time
-          cachedAt: new Date(), // Update cache timestamp
-          expiresAt,
-          userId,
-        });
-        
+    const results = await Promise.allSettled(
+      batch.map((url) => processSingleUrl(url, jobId, userId))
+    );
+
+    for (const result of results) {
+      processedCount++;
+      if (result.status === "fulfilled" && result.value) {
         successCount++;
-        processedCount++;
-        await updateProcessingJob(jobId, {
-          processedUrls: processedCount,
-          successCount,
-          errorCount,
-        });
-        continue;
+      } else {
+        errorCount++;
       }
-
-      // Extract with retry logic
-      const data = await retryWithBackoff(() => extractRaceResults(normalizedUrl));
-
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      await insertRaceResult({
-        url: normalizedUrl,
-        urlHash,
-        raceName: data.raceName,
-        name: data.name,
-        category: data.category,
-        finishTime: data.finishTime,
-        bibNumber: data.bibNumber,
-        rankOverall: data.rankOverall,
-        rankCategory: data.rankCategory,
-        pace: data.pace,
-        platform: data.platform,
-        status: "completed",
-        errorMessage: null,
-        extractedAt: new Date(),
-        cachedAt: new Date(),
-        expiresAt,
-        userId,
-      });
-
-      successCount++;
-    } catch (error) {
-      console.error(`Error processing ${url}:`, error);
-      
-      const normalizedUrl = normalizeUrl(url);
-      const urlHash = hashUrl(normalizedUrl);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      await insertRaceResult({
-        url: normalizedUrl,
-        urlHash,
-        raceName: null,
-        name: null,
-        category: null,
-        finishTime: null,
-        bibNumber: null,
-        rankOverall: null,
-        rankCategory: null,
-        pace: null,
-        platform: "unknown",
-        status: "error",
-        errorMessage,
-        extractedAt: new Date(),
-        cachedAt: new Date(),
-        expiresAt,
-        userId,
-      });
-
-      errorCount++;
     }
 
-    processedCount++;
     await updateProcessingJob(jobId, {
       processedUrls: processedCount,
       successCount,
